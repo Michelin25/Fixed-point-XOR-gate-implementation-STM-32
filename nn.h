@@ -20,8 +20,6 @@
 // plus 1 bit for the sign, leaving 2 bits for the fractional portion.  My encoding is
 // q5.2 (signed), so I am scaling floats by 2^2 = 4.0 before mapping into q5.2 and 
 // then scaling from q5.2 back to floats by (floating point) dividing by 2^2 (or multiplying by 1/4)
-#define QNN_FRACTIONAL_BITS (4)
-#define QNN_SCALE_FACTOR (16.0)   // 2.0 ^ QNN_FRACTIONAL_BITS - pre-computed
 
 // Run the neural network model to generate a prediction
 // based on the inputs provided.

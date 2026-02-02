@@ -23,7 +23,7 @@ TARGET = STM32F042K6T
 # debug build?
 DEBUG = 1
 # optimization
-OPT = -O0
+OPT = -O3
 
 
 #######################################
