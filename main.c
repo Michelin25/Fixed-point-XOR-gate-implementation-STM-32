@@ -91,8 +91,8 @@ int main(void) {
             // If the maximum ch0 value is 4095, and we did (ch0/4095) as integer division
             // we would get 1 if ch0 = 4095, or 0 if ch0 < 4095 (because it is integer division)
             // Instead we scale _up_ first, then divide, leaving us with a Q3.4 result!
-            ch0 = (ch0 * 16)/4095; // force multiplication first, then division!
-            ch1 = (ch1 * 16)/4095;
+            ch0 = (ch0 * 8)/4095; // force multiplication first, then division!
+            ch1 = (ch1 * 8)/4095;
 
             // Now cast these at int8_t - we can discard the extra bits because we've just 
             // normalized the Qm.n in int8_t to represent the value 0.0 -> 1.0
@@ -111,7 +111,7 @@ int main(void) {
             // need the code bloat associated with supporting floating point numbers in printf()
             // We'll use an int16_t because we are multplying a Qm.n by a number that requires 6 bits
             // to encode, so the intermediate value is Qm+6.n which is larger than 8 bits!
-            int16_t result = ((int16_t)qresult * 100) / QNN_SCALE_FACTOR;
+            int16_t result = ((int16_t)qresult * 100) / 8;
 
             // Display the Qm.n inputs and result using signed integer format (printf() float support is not enabled!)
             printf("in[0]: %d, in[1]: %d, result: %d\n", ch0, ch1, result);
