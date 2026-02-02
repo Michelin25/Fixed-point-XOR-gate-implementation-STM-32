@@ -143,8 +143,8 @@ static void qlayer(const int8_t *inputs,const int *arch,const int8_t *weights, c
             //if a large number is reached it will be treated as negative? 
         }
         result += ((int16_t)bias[j]<< QNN_FRACTIONAL_BITS); // Align and extend
-        if (result > 127) result = 127;
-        if (result < -128) result = -128;
+        // if (result > 127) result = 127;
+        // if (result < -128) result = -128;
         int8_t z = (int8_t)(result >> QNN_FRACTIONAL_BITS);
         result = af((uint8_t)z);// Apply activation
         
