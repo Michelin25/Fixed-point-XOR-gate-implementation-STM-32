@@ -52,3 +52,13 @@ void adc_convert(ADC_CHANNEL_t channel) {
     ADC->CR |= ADC_CR_ADSTART;
 
 }
+void ADC1_IRQHandler(void){
+    if (ADC->IER & ADC_ISR_EOC){ // Checking interupt source, Why can't I use == for checking?
+        uint16_t data = ADC->DR; // Readeing the converted data
+        if (adc_cf !=0) {          //Checking if cb function is defined
+            adc_cf(active_channel, data);
+        
+        } 
+    }
+    //The end of conversion flag should be automaticall cleared after data is read
+}

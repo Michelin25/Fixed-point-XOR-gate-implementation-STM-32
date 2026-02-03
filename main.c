@@ -39,7 +39,6 @@ volatile bool keypressed = false;
 void usart2_rx_callback_function(uint8_t rx_data) {
     keypressed = true;
 }
-
 // Callback function for ADC end of conversion events
 // If the converted channel is channel 0, save the results 
 // and start a conversion on channel 1.  If the conversion
@@ -48,13 +47,14 @@ void usart2_rx_callback_function(uint8_t rx_data) {
 static uint16_t ch0; // results of last channel 0 conversion
 static uint16_t ch1; // results of last channel 1 conversion
 static volatile bool run_prediction = false; // flag for main()
-
-void adc_callback_function(ADC_CHANNEL_t channel) {
+void adc_callback_function(ADC_CHANNEL_t channel, uint16_t data) {
     switch(channel) {
         case ADC_CH0:
+            ch0 = data;
             adc_convert(ADC_CH1);
             break;
         case ADC_CH1:
+            ch1 = data;
             run_prediction = true;
             break;
         default:
