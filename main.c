@@ -24,13 +24,16 @@ static volatile uint16_t sys_tick = 0;   // SysTick counter
 volatile bool run_main = false;          // main loop flag
 
 void systick_callback_function(void) {   // SysTick callback
+    gpio_pin_set(GPIOA, gpio_pin_3);    
+    
     run_main = true;                     // trigger main loop
 
     if ((sys_tick % 5) == 0) {           // every 5 ticks
         led_toggle(LED_USER);        
     }
+    sys_tick++;
+    gpio_pin_reset(GPIOA, gpio_pin_3);   
 
-    sys_tick++;                     
 }
 
 // Callback function and global flag for USART receive data events,
@@ -44,11 +47,13 @@ void usart2_rx_callback_function(uint8_t rx_data) {
 // and start a conversion on channel 1.  If the conversion
 // is channel 1, save the results and signal main() to 
 // perform a prediction.
-static uint16_t ch0; // results of last channel 0 conversion
-static uint16_t ch1; // results of last channel 1 conversion
+volatile static uint16_t ch0; // results of last channel 0 conversion
+volatile static uint16_t ch1; // results of last channel 1 conversion
 static volatile bool run_prediction = false; // flag for main()
 void adc_callback_function(ADC_CHANNEL_t channel, uint16_t data) {
-    switch(channel) {
+    gpio_pin_set(GPIOA, gpio_pin_4);    
+        switch(channel) {
+        //gpio_pin_reset(GPIOA, gpio_pin_4);
         case ADC_CH0:
             ch0 = data;
             adc_convert(ADC_CH1);
@@ -56,17 +61,17 @@ void adc_callback_function(ADC_CHANNEL_t channel, uint16_t data) {
         case ADC_CH1:
             ch1 = data;
             run_prediction = true;
+            //gpio_pin_reset(GPIOA, gpio_pin_4);
             break;
         default:
             // Shouldn't ever happen!
     }
+    gpio_pin_reset(GPIOA, gpio_pin_4);  
+    
 }
 
 int main(void) {
-    // Variables to hold the unsigned 12-bit raw conversion values
-    // from the analog to digital converter (channels 0 and 1)
-    uint16_t ch0;
-    uint16_t ch1;
+
     // Qm.n inputs passed to NN_qpredict()
     int8_t qinputs[NN_INPUTS];
     // Qm.n result returned from NN_qpredict()
@@ -77,7 +82,9 @@ int main(void) {
 
     // Start the systick timer (2 Hz) and call the
     // systick_callback_function on timer events:
+
     systick_init(systick_callback_function);
+
 
     // Configure usart2 for 115200 baud, 8 data, no parit, 1 stop
     // do not register a callback handler for any received data at this time
@@ -85,7 +92,8 @@ int main(void) {
     usart2_init(usart2_rx_callback_function);
 
     // Enable the ADC
-    adc_init();
+ 
+    adc_init(adc_callback_function);
 
     // Enable exception/interrupt handling in the processor core:
     __asm("cpsie i");
@@ -98,10 +106,8 @@ int main(void) {
            
             // Sample the analog signal on Port A Pin 0, returns a "raw counts" value
             // in the range 0-4095 based on an input voltage in the range 0 - 3.3 V
-            adc_convert(ADC_CH0, &ch0);
+            adc_convert(ADC_CH0);
 
-            // Repeat for the analog signal on Port A Pin 1:
-            adc_convert(ADC_CH1, &ch1);
 
             // We want to scale the 12-bit ADC inputs, range 0-4095, into 
             // an appropriately scaled int8_t inputs to the quantized NN
@@ -123,19 +129,19 @@ int main(void) {
             // If the maximum ch0 value is 4095, and we did (ch0/4095) as integer division
             // we would get 1 if ch0 = 4095, or 0 if ch0 < 4095 (because it is integer division)
             // Instead we scale _up_ first, then divide, leaving us with a Q3.4 result!
-            ch0 = (ch0 * 8)/4095; // force multiplication first, then division!
-            ch1 = (ch1 * 8)/4095;
+            volatile uint16_t ch01 = (ch0 * 8)/4095; // force multiplication first, then division!
+            volatile uint16_t ch11 = (ch1 * 8)/4095;
 
             // Now cast these at int8_t - we can discard the extra bits because we've just 
             // normalized the Qm.n in int8_t to represent the value 0.0 -> 1.0
-            qinputs[0] = (int8_t)ch0;
-            qinputs[1] = (int8_t)ch1;
+            qinputs[0] = (int8_t)ch01;
+            qinputs[1] = (int8_t)ch11;
 
             // Predict! (and toggle GPIO around the prediction call so we can time the
             // execution time of the quantized NN_qpredict() function)
-            gpio_pin_set(GPIOA, gpio_pin_3); 
+            
             qresult = NN_qpredict(qinputs);
-            gpio_pin_reset(GPIOA, gpio_pin_3);
+            
 
             // Instead of presenting the results in the dequantized range 0-1, which would
             // require floating point, we will present the results "* 100" so we can use
@@ -146,7 +152,7 @@ int main(void) {
             int16_t result = ((int16_t)qresult * 100) / 8;
 
             // Display the Qm.n inputs and result using signed integer format (printf() float support is not enabled!)
-            printf("count: %d,in[0]: %d, in[1]: %d, result: %d\n",sys_tick, ch0, ch1, result);
+            printf("count: %d,in[0]: %d, in[1]: %d, result: %d\n",sys_tick, ch01, ch11, result);
 
             // Clear the 'keypressed' flag
             run_main = false;
