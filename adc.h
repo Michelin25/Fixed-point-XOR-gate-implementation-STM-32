@@ -93,10 +93,10 @@ typedef enum {ADC_CH0=ADC_CHSELR_0, ADC_CH1=ADC_CHSELR_1} ADC_CHANNEL_t;
 
 // configure the ADC for the correct sampling time and perform
 // its internal calibration procedure.  
-void adc_init(void);
+void adc_init(void(*adc_callback_function)(ADC_CHANNEL_t channel, uint16_t output));
 
 // start a single conversion on ADC Channel "channel" (ADC_CH0 or ADC_CH1)
 // and waits for a result before returning
 // returns RET_ERROR if the ADC is not ready to start a conversion
 // otherwise returns RET_SUCCESS
-ret_val_t adc_convert(ADC_CHANNEL_t channel, uint16_t *result); 
+ret_val_t adc_convert(ADC_CHANNEL_t channel); 
