@@ -11,6 +11,7 @@
 
 #include "stm32f042k6.h"
 
+
 // Send a character to the terminal window
 int __io_putchar(int data) {
   usart2_tx((uint8_t)data);
@@ -18,9 +19,18 @@ int __io_putchar(int data) {
 }
 
 // Callback function for systick exceptions registered in systick_init()
-// Toggle the onboard green LED and start an ADC conversion
-void systick_callback_function(void) {
-    led_toggle(LED_USER);
+
+static volatile uint16_t sys_tick = 0;   // SysTick counter
+volatile bool run_main = false;          // main loop flag
+
+void systick_callback_function(void) {   // SysTick callback
+    run_main = true;                     // trigger main loop
+
+    if ((sys_tick % 5) == 0) {           // every 5 ticks
+        led_toggle(LED_USER);        
+    }
+
+    sys_tick++;                     
 }
 
 // Callback function and global flag for USART receive data events,
@@ -62,7 +72,7 @@ int main(void) {
     printf("Lab 4: Quantized NN - press any key:\n");
 
     while( 1 ) {
-        if( keypressed ) {
+        if( run_main ) {
            
             // Sample the analog signal on Port A Pin 0, returns a "raw counts" value
             // in the range 0-4095 based on an input voltage in the range 0 - 3.3 V
@@ -114,10 +124,10 @@ int main(void) {
             int16_t result = ((int16_t)qresult * 100) / 8;
 
             // Display the Qm.n inputs and result using signed integer format (printf() float support is not enabled!)
-            printf("in[0]: %d, in[1]: %d, result: %d\n", ch0, ch1, result);
+            printf("count: %d,in[0]: %d, in[1]: %d, result: %d\n",sys_tick, ch0, ch1, result);
 
             // Clear the 'keypressed' flag
-            keypressed = false;
+            run_main = false;
         }
     }
 }
