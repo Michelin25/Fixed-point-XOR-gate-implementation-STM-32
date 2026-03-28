@@ -4,8 +4,52 @@
 #include <stdio.h>
 
 #include <math.h>
- //
- //Add justigication for using Q4,3 structure
+
+
+// The fixed point implementation used is Q4,3 format, which means 4 bits for the integer part and 3 bits for the fractional part.
+// In theory we could use Q3,4 format to allow for a larger fractional range, but that would limit the integer range to -8 to 7,
+// which is not sufficient for our model parameters and intermediate results.
+// In order to determine the appropriate fixed-point format, we need to analyze the range of values that will be encountered in the neural network.
+// The ADC outputs a number between 0 and 4095, which at most takes up 12 bits, since I decided to use 
+//unsigned 16-bit integers to store the ADC values. 
+// We can only scale the ADC values up by a factor of 16 (2^4) before we risk overflowing the uint16_t type, 
+// which means we have at most 4 bits to represent the integer part of our fixed-point numbers.
+// Casting the 16 bit ADC values to int8_t format implicitly descards the first 8 bits, which leaves us with a Q4.3 format.
+
+//Within process neuron, we are multiplying two Q4.3 numbers together, which gives us a Q8.6 result,
+// so we need to use at least 16 bits to store the intermediate result of the multiplication to avoid overflow and preserve precision.
+// Quantize the floating-point based NN architecture to work with int8_t,
+// which is an 8-bit signed value ranging from -128 to 127.  Characterize the 
+// maximum/minium value through your NN.  
+//
+// Hidden Layer (input range 0 to 1.1):
+// 
+// Both scale factors for the first neuron are ~ -3 so my accumulated sum of scaled
+// inputs, worst case, is about -6.  But the bias is ~ +1.5 so
+// this neuron's value into the activation function will range from about -4.5 to about 1.5
+// its activation function is elu, which clamps negative values, 
+// so after elu() this neuron's value ranges ~-1 to 1.5
+//
+// Both scale factors for the second neuron are ~2 so my accumulated sum of scaled
+// inputs, worst case, is about 4, but the bias is ~ -2 so
+// this neuron's value into the activation function will range from about -2 to about 2
+// its activation function is elu, so again the neuron's final value ranges from ~-1 to ~2
+//
+// So, back of napkin, the worst-case intermediate value is ~-6 and the final neuron 
+// values, which become inputs to the next layer, are within ~-1 to ~2
+// 
+// Output Layer (input range approx -1 to 2)
+// 
+// The scale factors are both negative, around -4 and -3 respectively.
+// My worst-case accumulated sum of scaled inputs is -6, and the bias is 
+// approximately zero, so this neuron's largest value into the activation
+// function is ~-6.  
+// its activation function is sigmoid, which ranges from 0 to 1
+//
+// So the worst, case value in my system has a magnitude of 6, which I can encode in 3 bits.
+//
+// This suggests I can get away with Q3.4 fixed-point representation, but I don't want any 
+// trouble while I'm debugging so I'm going to hedge my bet and start out with Q4.3
 
 #define QNN_FRACTIONAL_BITS (3)
 #define QNN_SCALE_FACTOR (8.0)   // 2.0 ^ QNN_FRACTIONAL_BITS - pre-computed
@@ -123,9 +167,6 @@ int8_t qsigmoid(uint8_t index){
 int8_t qelu(uint8_t index){
     return qelu_lut[index];
 }
-
-
-
 
 
 

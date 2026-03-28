@@ -129,11 +129,14 @@ int main(void) {
             // If the maximum ch0 value is 4095, and we did (ch0/4095) as integer division
             // we would get 1 if ch0 = 4095, or 0 if ch0 < 4095 (because it is integer division)
             // Instead we scale _up_ first, then divide, leaving us with a Q3.4 result!
+
+
             volatile uint16_t ch01 = (ch0 * 8)/4095; // force multiplication first, then division!
             volatile uint16_t ch11 = (ch1 * 8)/4095;
 
             // Now cast these at int8_t - we can discard the extra bits because we've just 
             // normalized the Qm.n in int8_t to represent the value 0.0 -> 1.0
+            // Range is 0 to 8, with 3 decimal bits.
             qinputs[0] = (int8_t)ch01;
             qinputs[1] = (int8_t)ch11;
 
