@@ -18,49 +18,24 @@
 
 //Within process neuron, we are multiplying two Q4.3 numbers together, which gives us a Q8.6 result,
 // so we need to use at least 16 bits to store the intermediate result of the multiplication to avoid overflow and preserve precision.
-// Quantize the floating-point based NN architecture to work with int8_t,
-// which is an 8-bit signed value ranging from -128 to 127.  Characterize the 
-// maximum/minium value through your NN.  
-//
-// Hidden Layer (input range 0 to 1.1):
-// 
-// Both scale factors for the first neuron are ~ -3 so my accumulated sum of scaled
-// inputs, worst case, is about -6.  But the bias is ~ +1.5 so
-// this neuron's value into the activation function will range from about -4.5 to about 1.5
-// its activation function is elu, which clamps negative values, 
-// so after elu() this neuron's value ranges ~-1 to 1.5
-//
-// Both scale factors for the second neuron are ~2 so my accumulated sum of scaled
-// inputs, worst case, is about 4, but the bias is ~ -2 so
-// this neuron's value into the activation function will range from about -2 to about 2
-// its activation function is elu, so again the neuron's final value ranges from ~-1 to ~2
-//
-// So, back of napkin, the worst-case intermediate value is ~-6 and the final neuron 
-// values, which become inputs to the next layer, are within ~-1 to ~2
-// 
-// Output Layer (input range approx -1 to 2)
-// 
-// The scale factors are both negative, around -4 and -3 respectively.
-// My worst-case accumulated sum of scaled inputs is -6, and the bias is 
-// approximately zero, so this neuron's largest value into the activation
-// function is ~-6.  
-// its activation function is sigmoid, which ranges from 0 to 1
-//
-// So the worst, case value in my system has a magnitude of 6, which I can encode in 3 bits.
-//
-// This suggests I can get away with Q3.4 fixed-point representation, but I don't want any 
-// trouble while I'm debugging so I'm going to hedge my bet and start out with Q4.3
+// For further optimization I calculated the maximum values the nodes can take on and worst case 5.0625 (output layer)
+// resoulting in output layer at worst taking on values of around 2, so we can get away with using 8 bits to store
+// the intermediate and final neuron values, which is why I chose Q4.3 format for the fixed-point representation.
+
+// Q3.4 would still be sufficient for this XOR network, since the maximum internal value is about 5.06, which is 
+// below the Q3.4 limit of 7.9375. However, the model parameters and activation lookup tables I generated are for Q4.3 
+// with the goal of redundancy for future development converting to Q3.4 would require need to be re-quantized for the new format.
 
 #define QNN_FRACTIONAL_BITS (3)
 #define QNN_SCALE_FACTOR (8.0)   // 2.0 ^ QNN_FRACTIONAL_BITS - pre-computed
 
 #define NN_INPUTS          (2)
-#define NN_LAYER0_NEURONS  (2) //Why are these in brackets
+#define NN_LAYER0_NEURONS  (2) // Parenthesized macro value for safe expression expansion.
 #define NN_OUTPUT (1)
 
-static const int architec[3]={2,2,1}; // Neural network structure by layers, modify for other structures
+static const int architec[3]={2,2,1}; // Layer sizes ordered as {input, hidden, output}.
 
-// Quantized NN Model Parameters
+// Quantized neural-network parameters.
 const int8_t l0_qweights[2][2] = {
         { -25, 24, },
         { 25, -26, },
@@ -74,16 +49,13 @@ const int8_t l1_qweights[1][2] = {
 
 const int8_t l1_qbiases[1] = {2};
 
-// process_neuron(input_values)
+// Output buffers for each network layer.
 int8_t qout_vector0[2];
 int8_t qout_vector1[1];
 
-//Activation func Tables
+// Activation-function lookup tables.
 
-// Quantized lookup table for qelu activation function
-// Look up quantized result of input argument by casting the
-// int8_t (qm.n) to uint8_t for the lookup table index, e.g.:
-// int8_t qresult = qelu_lut[(uint8_t)qargument];
+// Quantized ELU lookup table indexed by uint8-cast Qm.n input.
 
 static const int8_t qelu_lut[256] = {
         0, 1, 2, 3, 4, 5, 6, 7,
@@ -120,10 +92,7 @@ static const int8_t qelu_lut[256] = {
         -5, -5, -4, -4, -3, -3, -2, -1,
         };
 
-// Quantized lookup table for qsigmoid activation function
-// Look up quantized result of input argument by casting the
-// int8_t (qm.n) to uint8_t for the lookup table index, e.g.:
-// int8_t qresult = qsigmoid_lut[(uint8_t)qargument];
+// Quantized sigmoid lookup table indexed by uint8-cast Qm.n input.
 
 static const int8_t qsigmoid_lut[256] = {
         4, 4, 4, 5, 5, 5, 5, 6,
@@ -174,22 +143,22 @@ static void qlayer(const int8_t *inputs,const int *arch,const int8_t *weights, c
     int num_inputs = arch[depth];
     int num_outputs = arch[depth+1];
 
-    for (int j = 0; j < num_outputs; j++) { // Iterating over neurons
-        //Bsed on the analysis above it's clear that we can use 8Bit number
+    for (int j = 0; j < num_outputs; j++) { // Iterates through each output neuron in the current layer.
+        // Uses int16 accumulator to preserve multiply-accumulate range.
         int16_t result = 0;
         int8_t i;
         for( i = 0; i < num_inputs; i++ ) {
-            // weights stored contiguously as [neuron][input]
-            result += (int16_t)weights[j * num_inputs + i] * (int16_t)inputs[i]; //Multiplying two Q4,3 values, giving us Q8,6
-            //if a large number is reached it will be treated as negative? 
+            // Weight matrix is flattened in [neuron][input] order.
+            result += (int16_t)weights[j * num_inputs + i] * (int16_t)inputs[i]; // Q4.3 x Q4.3 multiplication produces a Q8.6 intermediate.
+            // No explicit saturation is applied before narrowing to int8_t.
         }
-        result += ((int16_t)bias[j]<< QNN_FRACTIONAL_BITS); // Align and extend
+        result += ((int16_t)bias[j]<< QNN_FRACTIONAL_BITS); // Aligns bias term to accumulator fractional-bit depth.
         // if (result > 127) result = 127;
         // if (result < -128) result = -128;
         int8_t z = (int8_t)(result >> QNN_FRACTIONAL_BITS);
-        result = af((uint8_t)z);// Apply activation
+        result = af((uint8_t)z);// Applies activation LUT to quantized pre-activation value.
         
-        out_vector[j]= result; // Over riding the global output array
+        out_vector[j]= result; // Stores neuron output in the destination layer buffer.
     }
 }
 
@@ -202,12 +171,12 @@ int8_t NN_qpredict(const int8_t *input_qval) {
     return qout_vector1[0];
 }
 
-// // Convert a floating point value to its fixed-point equivalent representation
+// Converts floating-point input to quantized fixed-point representation.
 // int8_t NN_quantize(const float value) {
 //     return (int8_t)(roundf(value*QNN_SCALE_FACTOR));
 // }
 
-// // Convert a fixed-point value to its floating point equivalent representation
+// Converts fixed-point value back to floating-point representation.
 // float NN_dequantize(const int8_t value) {
 //     return (float)(value) / QNN_SCALE_FACTOR;
 // }

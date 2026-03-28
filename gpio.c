@@ -4,11 +4,10 @@
 #include "gpio.h"
 #include "retval.h"
 
-// TODO: comment all code - see Reference Manual Section 8
-
-ret_val_t gpio_pin_get( GPIO_t *port, gpio_pin_t pin, bool *state ) {
-    // validate arguments
-    if( (port == NULL) || (state == NULL) ) {
+// Reads a GPIO pin state into the provided output pointer.
+ret_val_t gpio_pin_get(GPIO_t *port, gpio_pin_t pin, bool *state) {
+    // Validate required pointers before register access.
+    if((port == NULL) || (state == NULL)) {
         return RET_GPIO_ERR_NULL_PTR;
     }
 
@@ -16,8 +15,9 @@ ret_val_t gpio_pin_get( GPIO_t *port, gpio_pin_t pin, bool *state ) {
     return RET_SUCCESS;
 }
 
-ret_val_t gpio_pin_set( GPIO_t *port, gpio_pin_t pin ) {
-    if( port == NULL ) {
+// Sets a GPIO output pin.
+ret_val_t gpio_pin_set(GPIO_t *port, gpio_pin_t pin) {
+    if(port == NULL) {
         return RET_GPIO_ERR_NULL_PTR;
     }
 
@@ -25,21 +25,23 @@ ret_val_t gpio_pin_set( GPIO_t *port, gpio_pin_t pin ) {
     return RET_SUCCESS;
 }
 
-ret_val_t gpio_pin_reset( GPIO_t *port, gpio_pin_t pin ) {
-    if( port == NULL ) {
+// Clears a GPIO output pin.
+ret_val_t gpio_pin_reset(GPIO_t *port, gpio_pin_t pin) {
+    if(port == NULL) {
         return RET_GPIO_ERR_NULL_PTR;
     }
-    
+
     port->BRR = pin;
     return RET_SUCCESS;
 }
 
-ret_val_t gpio_pin_toggle( GPIO_t *port, gpio_pin_t pin ) {
-    if( port == NULL ) {
+// Toggles a GPIO pin based on its current input register state.
+ret_val_t gpio_pin_toggle(GPIO_t *port, gpio_pin_t pin) {
+    if(port == NULL) {
         return RET_GPIO_ERR_NULL_PTR;
     }
 
-    if( port->IDR & pin ) {
+    if(port->IDR & pin) {
         gpio_pin_reset(port, pin);
     } else {
         gpio_pin_set(port, pin);
