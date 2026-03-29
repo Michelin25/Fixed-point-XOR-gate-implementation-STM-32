@@ -1,3 +1,7 @@
-This project is part of my embedded systems portfolio. I trained a small XOR neural network in TensorFlow and Scikit-learn to find the weights and biases, then reimplemented the network in C as a generic layer with a user defined architecture. This floating-point version served as the benchmark. I chose a custom C implementation instead of LiteRT to get more control over memory use and make debugging easier on an embedded target. I then converted the full design to fixed-point integers to reduce flash use, lower power use, and increase speed. After optimization, power use fell by X and speed increased by X.
+This project is part of my embedded systems portfolio. I trained a small XOR neural network in TensorFlow and Scikit-learn to find the weights and biases, then reimplemented the network in C as a generic layer with a user defined architecture. This floating-point version served as the benchmark. I chose a custom C implementation instead of LiteRT to get more control over memory use and make debugging easier on an embedded target. I then converted the full design to fixed-point integers to reduce flash use, lower power use, and increase speed. 
+After optimization, power use fell by X and speed increased by X.
+Attempt | #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
+--- | --- | --- | --- |--- |--- |--- |--- |--- |--- |--- |---
+Seconds | 301 | 283 | 290 | 286 | 289 | 285 | 287 | 287 | 272 | 276 | 269
 
 This project is based on coursework from ENGS-62 at Dartmouth's Thayer School of Engineering
