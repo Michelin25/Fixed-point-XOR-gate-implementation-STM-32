@@ -26,5 +26,5 @@ Channel 2 shows how long the `ADC` callback runs when a conversion finishes. The
 
 The equal spacing between the end of the Channel 1 pulse and the start of the first Channel 2 pulse, and then between the end of the first Channel 2 pulse and the start of the second Channel 2 pulse, shows that the same process is happening in both intervals. These intervals are the ADC conversion times. During this time, the ADC hardware is performing the conversion in the background and then raising the interrupt flag when the result is ready. The duration is the same because both conversions use the same ADC settings, clock, and sample timing.
 
-This project is based on coursework from![ENGS-62](https://engineering.dartmouth.edu/courses/engs62) at Dartmouth's![Thayer School of Engineering](https://engineering.dartmouth.edu/).
+This project is based on coursework from [ENGS-62](https://engineering.dartmouth.edu/courses/engs62) at Dartmouth's [Thayer School of Engineering](https://engineering.dartmouth.edu/).
 
